@@ -219,6 +219,23 @@ raop_ntp_init_socket(raop_ntp_t *raop_ntp, int use_ipv6)
     return -1;
 }
 
+static void
+raop_ntp_flush_socket(int fd)
+{
+    int bytes_available = 0;
+    while (ioctl(fd, FIONREAD, &bytes_available) == 0 && bytes_available > 0)
+    {
+        // We are guaranteed that we won't block, because bytes are available.
+        // Read 1 byte. Extra bytes in the datagram will be discarded.
+        char c;
+        int result = recvfrom(fd, &c, sizeof(c), 0, NULL, NULL);
+        if (result < 0)
+        {
+            break;
+        }
+    }
+}
+
 static THREAD_RETVAL
 raop_ntp_thread(void *arg)
 {
@@ -239,6 +256,9 @@ raop_ntp_thread(void *arg)
             break;
         }
         MUTEX_UNLOCK(raop_ntp->run_mutex);
+
+        // Flush the socket in case a super delayed response arrived or something
+        raop_ntp_flush_socket(raop_ntp->tsock);
 
         // Send request
         uint64_t send_time = raop_ntp_get_local_time(raop_ntp);
