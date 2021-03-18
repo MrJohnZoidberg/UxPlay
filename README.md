@@ -24,3 +24,4 @@ Building on Fedora:
 3. cd build 
 4. cmake ..
 5. make
+6. sudo systemctl stop firewalld
